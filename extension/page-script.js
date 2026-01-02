@@ -25,21 +25,36 @@ function sendResponse(requestId, data, error = null) {
 // Helper to wait for Roll20 API to be ready
 function waitForRoll20API() {
   return new Promise((resolve) => {
-    if (window.Campaign) {
+    const checkReady = () => {
+      // Check if Campaign exists and has its collections loaded
+      if (window.Campaign &&
+          window.Campaign.characters &&
+          window.Campaign.handouts &&
+          typeof window.Campaign.characters.length !== 'undefined') {
+        return true;
+      }
+      return false;
+    };
+
+    if (checkReady()) {
+      console.log('[Page Script] Campaign already loaded');
       resolve();
       return;
     }
 
+    console.log('[Page Script] Waiting for Campaign to load...');
     const checkInterval = setInterval(() => {
-      if (window.Campaign) {
+      if (checkReady()) {
         clearInterval(checkInterval);
+        console.log('[Page Script] Campaign loaded successfully');
         resolve();
       }
-    }, 100);
+    }, 250);
 
     // Timeout after 30 seconds
     setTimeout(() => {
       clearInterval(checkInterval);
+      console.warn('[Page Script] Timeout waiting for Campaign, proceeding anyway');
       resolve();
     }, 30000);
   });
@@ -52,9 +67,15 @@ const Roll20API = {
    */
   listCharacters() {
     try {
-      if (!window.Campaign || !window.Campaign.characters) {
-        throw new Error('Roll20 Campaign object not available');
+      if (!window.Campaign) {
+        throw new Error('Roll20 Campaign object not found. Please ensure you are on the Roll20 editor page and the campaign is fully loaded.');
       }
+
+      if (!window.Campaign.characters) {
+        throw new Error('Campaign.characters collection not available. Campaign may still be loading.');
+      }
+
+      console.log('[Page Script] Found', window.Campaign.characters.length, 'characters');
 
       const characters = window.Campaign.characters.map(char => ({
         id: char.id,
@@ -66,6 +87,7 @@ const Roll20API = {
 
       return { characters, count: characters.length };
     } catch (error) {
+      console.error('[Page Script] listCharacters error:', error);
       throw new Error(`Failed to list characters: ${error.message}`);
     }
   },
