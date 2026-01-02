@@ -3,7 +3,7 @@
 /**
  * Roll20 MCP Server
  * Provides Model Context Protocol tools for managing Roll20 campaigns
- * Communicates with Chrome extension via Native Messaging
+ * Communicates with Chrome extension via WebSocket
  */
 
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
@@ -14,10 +14,12 @@ import {
   ErrorCode,
   McpError
 } from '@modelcontextprotocol/sdk/types.js';
-import * as readline from 'readline';
+import { WebSocketServer, WebSocket } from 'ws';
 
-// Native Messaging Communication
-class NativeMessagingClient {
+// WebSocket Communication with Chrome Extension
+class ExtensionClient {
+  private wss: WebSocketServer;
+  private ws: WebSocket | null = null;
   private requestIdCounter = 0;
   private pendingRequests = new Map<number, {
     resolve: (value: any) => void;
@@ -25,54 +27,36 @@ class NativeMessagingClient {
     timeout: NodeJS.Timeout;
   }>();
 
-  constructor() {
-    // Set up binary stdin/stdout for Native Messaging
-    if (process.stdin.isTTY) {
-      console.error('Warning: stdin is a TTY. Native Messaging requires binary stdin.');
-    }
+  constructor(port: number = 8765) {
+    this.wss = new WebSocketServer({ port });
 
-    // Listen for messages from Chrome extension
-    this.setupNativeMessageListener();
-  }
+    this.wss.on('connection', (ws) => {
+      console.error('Chrome extension connected via WebSocket');
+      this.ws = ws;
 
-  private setupNativeMessageListener() {
-    let messageLength = 0;
-    let messageBuffer = Buffer.alloc(0);
-    let readingLength = true;
-
-    process.stdin.on('data', (chunk: Buffer) => {
-      messageBuffer = Buffer.concat([messageBuffer, chunk]);
-
-      while (true) {
-        if (readingLength) {
-          if (messageBuffer.length >= 4) {
-            messageLength = messageBuffer.readUInt32LE(0);
-            messageBuffer = messageBuffer.slice(4);
-            readingLength = false;
-          } else {
-            break;
-          }
-        } else {
-          if (messageBuffer.length >= messageLength) {
-            const messageData = messageBuffer.slice(0, messageLength);
-            messageBuffer = messageBuffer.slice(messageLength);
-            readingLength = true;
-
-            try {
-              const message = JSON.parse(messageData.toString('utf-8'));
-              this.handleNativeMessage(message);
-            } catch (error) {
-              console.error('Error parsing native message:', error);
-            }
-          } else {
-            break;
-          }
+      ws.on('message', (data) => {
+        try {
+          const message = JSON.parse(data.toString());
+          this.handleMessage(message);
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error);
         }
-      }
+      });
+
+      ws.on('close', () => {
+        console.error('Chrome extension disconnected');
+        this.ws = null;
+      });
+
+      ws.on('error', (error) => {
+        console.error('WebSocket error:', error);
+      });
     });
+
+    console.error(`WebSocket server listening on ws://localhost:${port}`);
   }
 
-  private handleNativeMessage(message: any) {
+  private handleMessage(message: any) {
     console.error('Received from extension:', JSON.stringify(message));
 
     if (message.requestId !== undefined) {
@@ -91,6 +75,10 @@ class NativeMessagingClient {
   }
 
   async sendRequest(method: string, params: any = {}): Promise<any> {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error('Chrome extension not connected. Please ensure Roll20 tab is open with extension loaded.');
+    }
+
     const requestId = this.requestIdCounter++;
 
     return new Promise((resolve, reject) => {
@@ -102,20 +90,9 @@ class NativeMessagingClient {
       this.pendingRequests.set(requestId, { resolve, reject, timeout });
 
       const message = { requestId, method, params };
-      this.sendNativeMessage(message);
+      this.ws!.send(JSON.stringify(message));
+      console.error('Sent to extension:', JSON.stringify(message));
     });
-  }
-
-  private sendNativeMessage(message: any) {
-    const messageJson = JSON.stringify(message);
-    const messageBuffer = Buffer.from(messageJson, 'utf-8');
-    const lengthBuffer = Buffer.alloc(4);
-    lengthBuffer.writeUInt32LE(messageBuffer.length, 0);
-
-    process.stdout.write(lengthBuffer);
-    process.stdout.write(messageBuffer);
-
-    console.error('Sent to extension:', messageJson);
   }
 }
 
@@ -132,8 +109,8 @@ const server = new Server(
   }
 );
 
-// Initialize Native Messaging client
-const nativeClient = new NativeMessagingClient();
+// Initialize WebSocket client for extension communication
+const extensionClient = new ExtensionClient(8765);
 
 // Tool Definitions
 const TOOLS = [
@@ -264,17 +241,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     switch (name) {
       case 'list_characters':
-        result = await nativeClient.sendRequest('listCharacters');
+        result = await extensionClient.sendRequest('listCharacters');
         break;
 
       case 'get_character':
-        result = await nativeClient.sendRequest('getCharacter', {
+        result = await extensionClient.sendRequest('getCharacter', {
           characterId: args.characterId,
         });
         break;
 
       case 'create_character':
-        result = await nativeClient.sendRequest('createCharacter', {
+        result = await extensionClient.sendRequest('createCharacter', {
           name: args.name,
           data: {
             avatar: args.avatar,
@@ -285,7 +262,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
 
       case 'update_character':
-        result = await nativeClient.sendRequest('updateCharacter', {
+        result = await extensionClient.sendRequest('updateCharacter', {
           characterId: args.characterId,
           updates: {
             name: args.name,
@@ -297,18 +274,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         break;
 
       case 'list_handouts':
-        result = await nativeClient.sendRequest('listHandouts');
+        result = await extensionClient.sendRequest('listHandouts');
         break;
 
       case 'create_handout':
-        result = await nativeClient.sendRequest('createHandout', {
+        result = await extensionClient.sendRequest('createHandout', {
           name: args.name,
           content: args.content || '',
         });
         break;
 
       case 'get_campaign_info':
-        result = await nativeClient.sendRequest('getCampaignInfo');
+        result = await extensionClient.sendRequest('getCampaignInfo');
         break;
 
       default:
@@ -338,12 +315,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 // Start server
 async function main() {
   console.error('Starting Roll20 MCP Server...');
+  console.error('WebSocket server ready for Chrome extension connection');
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
 
-  console.error('Roll20 MCP Server running');
-  console.error('Waiting for connection from Chrome extension...');
+  console.error('Roll20 MCP Server running on stdio');
+  console.error('Waiting for connection from Chrome extension on ws://localhost:8765');
 }
 
 main().catch((error) => {
