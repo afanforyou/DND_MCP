@@ -42,6 +42,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('[Content Script] Received from background:', message);
 
   if (message.type === 'FROM_MCP') {
+    console.log('[Content Script] Forwarding to page script:', message.payload);
     // Forward to page script
     window.postMessage({
       type: 'TO_PAGE',

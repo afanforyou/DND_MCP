@@ -34,12 +34,17 @@ function connectWebSocket() {
 
       // Forward message to active Roll20 tab
       if (activeTabId) {
+        console.log('[Background] Forwarding to tab', activeTabId, ':', message);
         chrome.tabs.sendMessage(activeTabId, {
           type: 'FROM_MCP',
           payload: message
+        }).then(() => {
+          console.log('[Background] Successfully sent to tab');
         }).catch(err => {
           console.error('[Background] Failed to send to tab:', err);
         });
+      } else {
+        console.error('[Background] No active tab ID to send message to');
       }
     } catch (error) {
       console.error('[Background] Error parsing WebSocket message:', error);
@@ -79,16 +84,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   if (message.type === 'TO_MCP') {
     // Forward message from content script to MCP server via WebSocket
+    console.log('[Background] Sending to MCP server via WebSocket:', message.payload);
     if (ws && ws.readyState === WebSocket.OPEN) {
       try {
-        ws.send(JSON.stringify(message.payload));
+        const jsonPayload = JSON.stringify(message.payload);
+        console.log('[Background] WebSocket send:', jsonPayload);
+        ws.send(jsonPayload);
         sendResponse({ success: true });
       } catch (err) {
         console.error('[Background] Failed to send to WebSocket:', err);
         sendResponse({ success: false, error: err.message });
       }
     } else {
-      console.error('[Background] WebSocket not connected');
+      console.error('[Background] WebSocket not connected, readyState:', ws?.readyState);
       sendResponse({ success: false, error: 'WebSocket not connected' });
     }
     return true;

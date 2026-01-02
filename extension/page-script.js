@@ -313,9 +313,11 @@ window.addEventListener('message', async (event) => {
         throw new Error(`Unknown method: ${method}`);
     }
 
+    console.log('[Page Script] Sending successful response:', { requestId, result });
     sendResponse(requestId, result);
   } catch (error) {
     console.error('[Page Script] Error handling request:', error);
+    console.error('[Page Script] Error stack:', error.stack);
     sendResponse(requestId, null, error.message);
   }
 });
