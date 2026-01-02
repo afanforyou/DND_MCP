@@ -1,0 +1,11 @@
+node_modules/
+build/
+dist/
+*.log
+.DS_Store
+*.crx
+*.pem
+*.zip
+
+# Native messaging host (generated per-user)
+extension/native-host-*.json

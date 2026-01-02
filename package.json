@@ -1,0 +1,31 @@
+{
+  "name": "roll20-mcp-server",
+  "version": "0.1.0",
+  "description": "Model Context Protocol server for Roll20 campaign management via Chrome extension",
+  "type": "module",
+  "main": "build/index.js",
+  "bin": {
+    "roll20-mcp-server": "build/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "start": "node build/index.js",
+    "dev": "tsc && node build/index.js"
+  },
+  "keywords": [
+    "mcp",
+    "roll20",
+    "dnd",
+    "campaign-management"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "typescript": "^5.7.2"
+  }
+}

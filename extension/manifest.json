@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Roll20 MCP Bridge",
+  "version": "0.1.0",
+  "description": "Bridges Roll20 to MCP server for AI-powered campaign management",
+  "permissions": [
+    "nativeMessaging",
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "*://app.roll20.net/editor/*",
+    "*://app.roll20.net/campaigns/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://app.roll20.net/editor/*"
+      ],
+      "js": ["content-script.js"],
+      "run_at": "document_end",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["page-script.js"],
+      "matches": ["*://app.roll20.net/*"]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
