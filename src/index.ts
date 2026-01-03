@@ -219,6 +219,32 @@ const TOOLS = [
     },
   },
   {
+    name: 'update_handout',
+    description: 'Update an existing handout',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        handoutId: {
+          type: 'string',
+          description: 'The ID of the handout to update',
+        },
+        name: {
+          type: 'string',
+          description: 'New handout name (optional)',
+        },
+        content: {
+          type: 'string',
+          description: 'New content/notes (optional)',
+        },
+        gmnotes: {
+          type: 'string',
+          description: 'New GM notes (optional)',
+        },
+      },
+      required: ['handoutId'],
+    },
+  },
+  {
     name: 'get_campaign_info',
     description: 'Get information about the current Roll20 campaign',
     inputSchema: {
@@ -281,6 +307,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         result = await extensionClient.sendRequest('createHandout', {
           name: args.name,
           content: args.content || '',
+        });
+        break;
+
+      case 'update_handout':
+        result = await extensionClient.sendRequest('updateHandout', {
+          handoutId: args.handoutId,
+          updates: {
+            name: args.name,
+            content: args.content,
+            gmnotes: args.gmnotes,
+          },
         });
         break;
 

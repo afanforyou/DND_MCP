@@ -134,21 +134,30 @@ const Roll20API = {
         throw new Error('Roll20 Campaign object not available');
       }
 
+      // Create character with basic attributes
       const characterData = {
         name: name,
         avatar: data.avatar || '',
-        bio: data.bio || '',
-        gmnotes: data.gmnotes || '',
         controlledby: data.controlledby || '',
         inplayerjournals: data.inplayerjournals || ''
       };
 
       const newChar = window.Campaign.characters.create(characterData);
 
-      // Wait for character to be created
+      // Wait for character to be created, then set bio/gmnotes
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           if (newChar && newChar.id) {
+            // Set bio and gmnotes separately (they are lazy-loaded fields)
+            if (data.bio) {
+              newChar.save({ bio: data.bio });
+            }
+            if (data.gmnotes) {
+              newChar.save({ gmnotes: data.gmnotes });
+            }
+
+            console.log('[Page Script] Character created with bio/gmnotes:', newChar.id);
+
             resolve({
               id: newChar.id,
               name: newChar.attributes.name,
@@ -178,13 +187,24 @@ const Roll20API = {
         throw new Error(`Character not found: ${characterId}`);
       }
 
-      // Update basic attributes
-      if (updates.name) char.set('name', updates.name);
-      if (updates.avatar) char.set('avatar', updates.avatar);
-      if (updates.bio) char.set('bio', updates.bio);
-      if (updates.gmnotes) char.set('gmnotes', updates.gmnotes);
+      // Update basic attributes (name, avatar)
+      const basicUpdates = {};
+      if (updates.name) basicUpdates.name = updates.name;
+      if (updates.avatar) basicUpdates.avatar = updates.avatar;
 
-      char.save();
+      if (Object.keys(basicUpdates).length > 0) {
+        char.save(basicUpdates);
+      }
+
+      // Update bio and gmnotes separately (lazy-loaded fields)
+      if (updates.bio !== undefined) {
+        char.save({ bio: updates.bio });
+        console.log('[Page Script] Updated bio for character:', characterId);
+      }
+      if (updates.gmnotes !== undefined) {
+        char.save({ gmnotes: updates.gmnotes });
+        console.log('[Page Script] Updated gmnotes for character:', characterId);
+      }
 
       return { success: true, id: characterId };
     } catch (error) {
@@ -223,17 +243,24 @@ const Roll20API = {
         throw new Error('Roll20 Campaign object not available');
       }
 
+      // Create handout with basic attributes
       const handoutData = {
         name: name,
-        notes: content,
         archived: false
       };
 
       const newHandout = window.Campaign.handouts.create(handoutData);
 
+      // Wait for handout to be created, then set notes
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           if (newHandout && newHandout.id) {
+            // Set notes separately (it's a lazy-loaded field)
+            if (content) {
+              newHandout.save({ notes: content });
+              console.log('[Page Script] Handout created with notes:', newHandout.id);
+            }
+
             resolve({
               id: newHandout.id,
               name: newHandout.attributes.name,
@@ -246,6 +273,47 @@ const Roll20API = {
       });
     } catch (error) {
       throw new Error(`Failed to create handout: ${error.message}`);
+    }
+  },
+
+  /**
+   * Update a handout
+   */
+  updateHandout(handoutId, updates) {
+    try {
+      if (!window.Campaign || !window.Campaign.handouts) {
+        throw new Error('Roll20 Campaign object not available');
+      }
+
+      const handout = window.Campaign.handouts.get(handoutId);
+      if (!handout) {
+        throw new Error(`Handout not found: ${handoutId}`);
+      }
+
+      // Update basic attributes (name)
+      const basicUpdates = {};
+      if (updates.name) basicUpdates.name = updates.name;
+      if (updates.archived !== undefined) basicUpdates.archived = updates.archived;
+
+      if (Object.keys(basicUpdates).length > 0) {
+        handout.save(basicUpdates);
+      }
+
+      // Update notes separately (lazy-loaded field)
+      if (updates.content !== undefined) {
+        handout.save({ notes: updates.content });
+        console.log('[Page Script] Updated notes for handout:', handoutId);
+      }
+
+      // Also support gmnotes for handouts
+      if (updates.gmnotes !== undefined) {
+        handout.save({ gmnotes: updates.gmnotes });
+        console.log('[Page Script] Updated gmnotes for handout:', handoutId);
+      }
+
+      return { success: true, id: handoutId };
+    } catch (error) {
+      throw new Error(`Failed to update handout: ${error.message}`);
     }
   },
 
@@ -305,6 +373,9 @@ window.addEventListener('message', async (event) => {
         break;
       case 'createHandout':
         result = await Roll20API.createHandout(params.name, params.content);
+        break;
+      case 'updateHandout':
+        result = Roll20API.updateHandout(params.handoutId, params.updates);
         break;
       case 'getCampaignInfo':
         result = Roll20API.getCampaignInfo();
