@@ -232,7 +232,19 @@ const Roll20API = {
   },
 
   /**
-   * Set character attributes (stats like HP, AC, ability scores, etc.)
+   * Generate a random 9-character shortID for integrants
+   */
+  generateShortID() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+    let result = '';
+    for (let i = 0; i < 9; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  },
+
+  /**
+   * Set character attributes for D&D 2024 character sheet (uses integrants system)
    */
   setCharacterAttributes(characterId, attributes) {
     try {
@@ -245,50 +257,141 @@ const Roll20API = {
         throw new Error(`Character not found: ${characterId}`);
       }
 
-      if (!char.attribs) {
-        throw new Error('Character attributes collection not available');
+      console.log('[Page Script] Setting attributes for D&D 2024 character:', characterId, attributes);
+
+      // Get the store attribute (D&D 2024 uses integrants stored in 'store')
+      const storeAttr = char.attribs.find(a => a.attributes.name === 'store');
+      if (!storeAttr) {
+        throw new Error('D&D 2024 character sheet store attribute not found');
       }
 
-      console.log('[Page Script] Setting attributes for character:', characterId, attributes);
-
-      // Ensure attribs has Firebase reference
-      if (!char.attribs.backboneFirebase) {
-        char.attribs.backboneFirebase = new window.BackboneFirebase(char.attribs);
+      const store = storeAttr.attributes.current;
+      if (!store.integrants || !store.integrants.integrants) {
+        throw new Error('Integrants system not initialized');
       }
 
+      const integrants = store.integrants.integrants;
       let updatedCount = 0;
 
-      // Update or create each attribute
+      // Helper to create/update an integrant
+      const setIntegrant = (type, searchFn, integrantData) => {
+        // Find existing integrant
+        let existingKey = Object.keys(integrants).find(key => searchFn(integrants[key]));
+
+        if (existingKey) {
+          // Update existing integrant
+          Object.assign(integrants[existingKey], integrantData);
+        } else {
+          // Create new integrant with UUID key
+          const uuid = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+          integrants[uuid] = {
+            ...integrantData,
+            shortID: this.generateShortID(),
+            createdTime: Date.now(),
+            _enabled: true,
+            name: '',
+            parentID: '',
+            parentDisabled: false,
+            overwriteDisabled: false,
+            childIDs: '[]',
+            builderDisplayName: ''
+          };
+        }
+        updatedCount++;
+      };
+
+      // Map of ability score names
+      const abilityMap = {
+        strength: 'Strength',
+        dexterity: 'Dexterity',
+        constitution: 'Constitution',
+        intelligence: 'Intelligence',
+        wisdom: 'Wisdom',
+        charisma: 'Charisma'
+      };
+
+      // Process each attribute
       Object.keys(attributes).forEach(attrName => {
         const value = attributes[attrName];
 
-        // Find existing attribute
-        let attr = char.attribs.find(a => a.attributes.name === attrName);
-
-        if (attr) {
-          // Update existing attribute
-          if (typeof value === 'object' && value !== null) {
-            if (value.current !== undefined) attr.set('current', String(value.current));
-            if (value.max !== undefined) attr.set('max', String(value.max));
+        // Handle ability scores
+        if (abilityMap[attrName.toLowerCase()]) {
+          const abilityName = abilityMap[attrName.toLowerCase()];
+          setIntegrant(
+            'Ability Score',
+            i => i.type === 'Ability Score' && i.ability === abilityName,
+            {
+              type: 'Ability Score',
+              ability: abilityName,
+              calculation: 'Set Value',
+              source: 'Custom',
+              _label: 'Override (Custom)',
+              valueFormula: { flatValue: Number(value) },
+              arrayPosition: Object.keys(abilityMap).indexOf(attrName.toLowerCase())
+            }
+          );
+        }
+        // Handle AC
+        else if (attrName === 'ac') {
+          setIntegrant(
+            'Armor Class',
+            i => i.type === 'Armor Class' && i.source === 'Custom',
+            {
+              type: 'Armor Class',
+              calculation: 'Set Value',
+              source: 'Custom',
+              defaultAbility: false,
+              _label: 'Unknown',
+              valueFormula: { flatValue: Number(value) },
+              arrayPosition: 6
+            }
+          );
+        }
+        // Handle HP
+        else if (attrName === 'hp') {
+          const hpValue = typeof value === 'object' ? value.max || value.current : value;
+          setIntegrant(
+            'Hit Points',
+            i => i.type === 'Hit Points' && i.hitpointType === 'Maximum',
+            {
+              type: 'Hit Points',
+              hitpointType: 'Maximum',
+              calculation: 'Set Value',
+              source: 'Custom',
+              isFixed: false,
+              isTemp: false,
+              _label: 'Override Max HP',
+              valueFormula: { flatValue: Number(hpValue) },
+              arrayPosition: 45
+            }
+          );
+        }
+        // Handle other attributes (speed, size, type, etc.) - use simple attributes
+        else {
+          let attr = char.attribs.find(a => a.attributes.name === attrName);
+          if (attr) {
+            if (typeof value === 'object' && value !== null) {
+              if (value.current !== undefined) attr.set('current', String(value.current));
+              if (value.max !== undefined) attr.set('max', String(value.max));
+            } else {
+              attr.set('current', String(value));
+            }
+            attr.save();
           } else {
-            attr.set('current', String(value));
+            char.attribs.create({
+              name: attrName,
+              current: typeof value === 'object' && value !== null ? String(value.current || '') : String(value),
+              max: typeof value === 'object' && value !== null && value.max !== undefined ? String(value.max) : '',
+              characterid: characterId
+            });
           }
-          attr.save();
-          updatedCount++;
-        } else {
-          // Create new attribute
-          const attrData = {
-            name: attrName,
-            current: typeof value === 'object' && value !== null ? String(value.current || '') : String(value),
-            max: typeof value === 'object' && value !== null && value.max !== undefined ? String(value.max) : '',
-            characterid: characterId
-          };
-          char.attribs.create(attrData);
-          updatedCount++;
         }
       });
 
-      console.log('[Page Script] Updated', updatedCount, 'attributes');
+      // Save the store attribute with updated integrants
+      storeAttr.save();
+
+      console.log('[Page Script] Updated', updatedCount, 'integrants');
 
       return { success: true, updatedCount, id: characterId };
     } catch (error) {
