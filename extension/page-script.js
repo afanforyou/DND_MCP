@@ -231,6 +231,161 @@ const Roll20API = {
   },
 
   /**
+   * Set character attributes (stats like HP, AC, ability scores, etc.)
+   */
+  setCharacterAttributes(characterId, attributes) {
+    try {
+      if (!window.Campaign || !window.Campaign.characters) {
+        throw new Error('Roll20 Campaign object not available');
+      }
+
+      const char = window.Campaign.characters.get(characterId);
+      if (!char) {
+        throw new Error(`Character not found: ${characterId}`);
+      }
+
+      if (!char.attribs) {
+        throw new Error('Character attributes collection not available');
+      }
+
+      console.log('[Page Script] Setting attributes for character:', characterId, attributes);
+
+      // Ensure attribs has Firebase reference
+      if (!char.attribs.backboneFirebase) {
+        char.attribs.backboneFirebase = new window.BackboneFirebase(char.attribs);
+      }
+
+      let updatedCount = 0;
+
+      // Update or create each attribute
+      Object.keys(attributes).forEach(attrName => {
+        const value = attributes[attrName];
+
+        // Find existing attribute
+        let attr = char.attribs.find(a => a.attributes.name === attrName);
+
+        if (attr) {
+          // Update existing attribute
+          if (typeof value === 'object' && value !== null) {
+            if (value.current !== undefined) attr.set('current', String(value.current));
+            if (value.max !== undefined) attr.set('max', String(value.max));
+          } else {
+            attr.set('current', String(value));
+          }
+          attr.save();
+          updatedCount++;
+        } else {
+          // Create new attribute
+          const attrData = {
+            name: attrName,
+            current: typeof value === 'object' && value !== null ? String(value.current || '') : String(value),
+            max: typeof value === 'object' && value !== null && value.max !== undefined ? String(value.max) : '',
+            characterid: characterId
+          };
+          char.attribs.create(attrData);
+          updatedCount++;
+        }
+      });
+
+      console.log('[Page Script] Updated', updatedCount, 'attributes');
+
+      return { success: true, updatedCount, id: characterId };
+    } catch (error) {
+      console.error('[Page Script] setCharacterAttributes error:', error);
+      throw new Error(`Failed to set character attributes: ${error.message}`);
+    }
+  },
+
+  /**
+   * Create NPC with full D&D stats
+   */
+  async createNPCWithStats(npcData) {
+    try {
+      console.log('[Page Script] Creating NPC with stats:', npcData.name);
+
+      // Step 1: Create the base character
+      const characterData = {
+        name: npcData.name,
+        avatar: npcData.avatar || '',
+        bio: npcData.bio || '',
+        gmnotes: npcData.gmnotes || ''
+      };
+
+      const char = await this.createCharacter(npcData.name, characterData);
+
+      console.log('[Page Script] Base character created:', char.id);
+
+      // Step 2: Wait a bit for character to sync, then set all attributes
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Build attributes object from NPC data
+      const attributes = {};
+
+      // Basic stats
+      if (npcData.npc_type) attributes.npc_type = npcData.npc_type;
+      if (npcData.size) attributes.size = npcData.size;
+      if (npcData.type) attributes.type = npcData.type;
+      if (npcData.alignment) attributes.alignment = npcData.alignment;
+
+      // Core stats
+      if (npcData.ac) attributes.ac = npcData.ac;
+      if (npcData.hp) attributes.hp = { current: npcData.hp, max: npcData.hp };
+      if (npcData.speed) attributes.speed = npcData.speed;
+
+      // Ability scores
+      if (npcData.strength) attributes.strength = npcData.strength;
+      if (npcData.dexterity) attributes.dexterity = npcData.dexterity;
+      if (npcData.constitution) attributes.constitution = npcData.constitution;
+      if (npcData.intelligence) attributes.intelligence = npcData.intelligence;
+      if (npcData.wisdom) attributes.wisdom = npcData.wisdom;
+      if (npcData.charisma) attributes.charisma = npcData.charisma;
+
+      // CR and proficiency
+      if (npcData.challenge_rating) attributes.npc_challenge = npcData.challenge_rating;
+      if (npcData.proficiency_bonus) attributes.pb = npcData.proficiency_bonus;
+
+      // Saving throws (if provided)
+      if (npcData.saving_throws) {
+        if (npcData.saving_throws.str) attributes.npc_str_save = npcData.saving_throws.str;
+        if (npcData.saving_throws.dex) attributes.npc_dex_save = npcData.saving_throws.dex;
+        if (npcData.saving_throws.con) attributes.npc_con_save = npcData.saving_throws.con;
+        if (npcData.saving_throws.int) attributes.npc_int_save = npcData.saving_throws.int;
+        if (npcData.saving_throws.wis) attributes.npc_wis_save = npcData.saving_throws.wis;
+        if (npcData.saving_throws.cha) attributes.npc_cha_save = npcData.saving_throws.cha;
+      }
+
+      // Skills (if provided)
+      if (npcData.skills) {
+        Object.keys(npcData.skills).forEach(skillName => {
+          attributes[`npc_${skillName.toLowerCase()}`] = npcData.skills[skillName];
+        });
+      }
+
+      // Senses
+      if (npcData.senses) attributes.senses = npcData.senses;
+      if (npcData.languages) attributes.languages = npcData.languages;
+
+      // Set all the attributes
+      if (Object.keys(attributes).length > 0) {
+        console.log('[Page Script] Setting', Object.keys(attributes).length, 'attributes');
+        await this.setCharacterAttributes(char.id, attributes);
+      }
+
+      console.log('[Page Script] NPC created successfully with all stats');
+
+      return {
+        success: true,
+        id: char.id,
+        name: char.name,
+        attributesSet: Object.keys(attributes).length
+      };
+    } catch (error) {
+      console.error('[Page Script] createNPCWithStats error:', error);
+      throw new Error(`Failed to create NPC with stats: ${error.message}`);
+    }
+  },
+
+  /**
    * List all handouts in the campaign
    */
   listHandouts() {
@@ -437,6 +592,12 @@ window.addEventListener('message', async (event) => {
         break;
       case 'updateCharacter':
         result = Roll20API.updateCharacter(params.characterId, params.updates);
+        break;
+      case 'setCharacterAttributes':
+        result = Roll20API.setCharacterAttributes(params.characterId, params.attributes);
+        break;
+      case 'createNPCWithStats':
+        result = await Roll20API.createNPCWithStats(params.npcData);
         break;
       case 'listHandouts':
         result = Roll20API.listHandouts();

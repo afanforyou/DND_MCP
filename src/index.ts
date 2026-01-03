@@ -193,6 +193,126 @@ const TOOLS = [
     },
   },
   {
+    name: 'set_character_attributes',
+    description: 'Set character attributes (stats like HP, AC, ability scores, etc.)',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        characterId: {
+          type: 'string',
+          description: 'The ID of the character',
+        },
+        attributes: {
+          type: 'object',
+          description: 'Object containing attribute names and values. For attributes with current/max (like HP), use {current: X, max: Y}',
+        },
+      },
+      required: ['characterId', 'attributes'],
+    },
+  },
+  {
+    name: 'create_npc_with_stats',
+    description: 'Create a fully-statted NPC with all D&D attributes filled in. Claude should generate appropriate stats based on the description.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        name: {
+          type: 'string',
+          description: 'NPC name',
+        },
+        npc_type: {
+          type: 'string',
+          description: 'NPC type (e.g., "NPC")',
+        },
+        size: {
+          type: 'string',
+          description: 'Size (Tiny, Small, Medium, Large, Huge, Gargantuan)',
+        },
+        type: {
+          type: 'string',
+          description: 'Creature type (humanoid, beast, dragon, etc.)',
+        },
+        alignment: {
+          type: 'string',
+          description: 'Alignment (Lawful Good, Neutral, Chaotic Evil, etc.)',
+        },
+        ac: {
+          type: 'number',
+          description: 'Armor Class',
+        },
+        hp: {
+          type: 'number',
+          description: 'Hit Points',
+        },
+        speed: {
+          type: 'string',
+          description: 'Speed (e.g., "30 ft")',
+        },
+        strength: {
+          type: 'number',
+          description: 'Strength score',
+        },
+        dexterity: {
+          type: 'number',
+          description: 'Dexterity score',
+        },
+        constitution: {
+          type: 'number',
+          description: 'Constitution score',
+        },
+        intelligence: {
+          type: 'number',
+          description: 'Intelligence score',
+        },
+        wisdom: {
+          type: 'number',
+          description: 'Wisdom score',
+        },
+        charisma: {
+          type: 'number',
+          description: 'Charisma score',
+        },
+        challenge_rating: {
+          type: 'string',
+          description: 'Challenge Rating (e.g., "1/4", "2", "10")',
+        },
+        proficiency_bonus: {
+          type: 'number',
+          description: 'Proficiency bonus',
+        },
+        saving_throws: {
+          type: 'object',
+          description: 'Saving throw bonuses {str, dex, con, int, wis, cha}',
+        },
+        skills: {
+          type: 'object',
+          description: 'Skill bonuses (key: skill name, value: bonus)',
+        },
+        senses: {
+          type: 'string',
+          description: 'Senses (e.g., "Darkvision 60 ft., Passive Perception 10")',
+        },
+        languages: {
+          type: 'string',
+          description: 'Languages known',
+        },
+        bio: {
+          type: 'string',
+          description: 'Biography/description',
+        },
+        gmnotes: {
+          type: 'string',
+          description: 'GM notes',
+        },
+        avatar: {
+          type: 'string',
+          description: 'Avatar URL (optional)',
+        },
+      },
+      required: ['name'],
+    },
+  },
+  {
     name: 'list_handouts',
     description: 'List all handouts in the Roll20 campaign',
     inputSchema: {
@@ -309,6 +429,43 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             avatar: args.avatar,
             bio: args.bio,
             gmnotes: args.gmnotes,
+          },
+        });
+        break;
+
+      case 'set_character_attributes':
+        result = await extensionClient.sendRequest('setCharacterAttributes', {
+          characterId: args.characterId,
+          attributes: args.attributes,
+        });
+        break;
+
+      case 'create_npc_with_stats':
+        result = await extensionClient.sendRequest('createNPCWithStats', {
+          npcData: {
+            name: args.name,
+            npc_type: args.npc_type,
+            size: args.size,
+            type: args.type,
+            alignment: args.alignment,
+            ac: args.ac,
+            hp: args.hp,
+            speed: args.speed,
+            strength: args.strength,
+            dexterity: args.dexterity,
+            constitution: args.constitution,
+            intelligence: args.intelligence,
+            wisdom: args.wisdom,
+            charisma: args.charisma,
+            challenge_rating: args.challenge_rating,
+            proficiency_bonus: args.proficiency_bonus,
+            saving_throws: args.saving_throws,
+            skills: args.skills,
+            senses: args.senses,
+            languages: args.languages,
+            bio: args.bio,
+            gmnotes: args.gmnotes,
+            avatar: args.avatar,
           },
         });
         break;
