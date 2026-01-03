@@ -141,7 +141,8 @@ const Roll20API = {
         name: name,
         avatar: data.avatar || '',
         controlledby: data.controlledby || '',
-        inplayerjournals: data.inplayerjournals || ''
+        inplayerjournals: data.inplayerjournals || '',
+        charactersheetname: data.charactersheetname || 'dnd2024byroll20' // Set D&D 2024 character sheet
       };
 
       const newChar = window.Campaign.characters.create(characterData);
@@ -320,6 +321,9 @@ const Roll20API = {
 
       // Build attributes object from NPC data
       const attributes = {};
+
+      // Set character sheet to NPC mode
+      attributes.appState = 'npc';
 
       // Basic stats
       if (npcData.npc_type) attributes.npc_type = npcData.npc_type;
