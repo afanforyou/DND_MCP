@@ -201,6 +201,20 @@ const TOOLS = [
     },
   },
   {
+    name: 'get_handout',
+    description: 'Get detailed information about a specific handout',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        handoutId: {
+          type: 'string',
+          description: 'The ID of the handout to retrieve',
+        },
+      },
+      required: ['handoutId'],
+    },
+  },
+  {
     name: 'create_handout',
     description: 'Create a new handout in the Roll20 campaign',
     inputSchema: {
@@ -301,6 +315,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'list_handouts':
         result = await extensionClient.sendRequest('listHandouts');
+        break;
+
+      case 'get_handout':
+        result = await extensionClient.sendRequest('getHandout', {
+          handoutId: args.handoutId,
+        });
         break;
 
       case 'create_handout':

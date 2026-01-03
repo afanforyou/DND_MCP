@@ -134,7 +134,9 @@ const Roll20API = {
         throw new Error('Roll20 Campaign object not available');
       }
 
-      // Create character with basic attributes
+      console.log('[Page Script] Creating character:', { name, hasBio: !!data.bio, hasGmnotes: !!data.gmnotes });
+
+      // Create character with basic attributes only
       const characterData = {
         name: name,
         avatar: data.avatar || '',
@@ -144,31 +146,41 @@ const Roll20API = {
 
       const newChar = window.Campaign.characters.create(characterData);
 
-      // Wait for character to be created, then set bio/gmnotes
+      // Wait longer for character to be created and synced, then set bio/gmnotes
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           if (newChar && newChar.id) {
+            console.log('[Page Script] Character created, ID:', newChar.id);
+
             // Set bio and gmnotes separately (they are lazy-loaded fields)
             if (data.bio) {
+              console.log('[Page Script] Saving bio to character:', data.bio);
               newChar.save({ bio: data.bio });
             }
             if (data.gmnotes) {
+              console.log('[Page Script] Saving gmnotes to character:', data.gmnotes);
               newChar.save({ gmnotes: data.gmnotes });
             }
 
-            console.log('[Page Script] Character created with bio/gmnotes:', newChar.id);
+            // Wait a bit more for saves to complete
+            setTimeout(() => {
+              console.log('[Page Script] Character bio/gmnotes save completed');
+              console.log('[Page Script] Character bio value:', newChar.get('bio'));
+              console.log('[Page Script] Character gmnotes value:', newChar.get('gmnotes'));
 
-            resolve({
-              id: newChar.id,
-              name: newChar.attributes.name,
-              success: true
-            });
+              resolve({
+                id: newChar.id,
+                name: newChar.attributes.name,
+                success: true
+              });
+            }, 500);
           } else {
             reject(new Error('Character creation failed'));
           }
-        }, 500);
+        }, 1000);
       });
     } catch (error) {
+      console.error('[Page Script] createCharacter error:', error);
       throw new Error(`Failed to create character: ${error.message}`);
     }
   },
@@ -243,7 +255,9 @@ const Roll20API = {
         throw new Error('Roll20 Campaign object not available');
       }
 
-      // Create handout with basic attributes
+      console.log('[Page Script] Creating handout:', { name, contentLength: content?.length });
+
+      // Create handout with basic attributes only
       const handoutData = {
         name: name,
         archived: false
@@ -251,28 +265,76 @@ const Roll20API = {
 
       const newHandout = window.Campaign.handouts.create(handoutData);
 
-      // Wait for handout to be created, then set notes
+      // Wait longer for handout to be created and synced, then set notes
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           if (newHandout && newHandout.id) {
+            console.log('[Page Script] Handout created, ID:', newHandout.id);
+
             // Set notes separately (it's a lazy-loaded field)
             if (content) {
+              console.log('[Page Script] Saving notes to handout:', content);
               newHandout.save({ notes: content });
-              console.log('[Page Script] Handout created with notes:', newHandout.id);
-            }
 
-            resolve({
-              id: newHandout.id,
-              name: newHandout.attributes.name,
-              success: true
-            });
+              // Wait a bit more for the save to complete
+              setTimeout(() => {
+                console.log('[Page Script] Notes save completed');
+                console.log('[Page Script] Handout notes value:', newHandout.get('notes'));
+
+                resolve({
+                  id: newHandout.id,
+                  name: newHandout.attributes.name,
+                  success: true
+                });
+              }, 500);
+            } else {
+              console.log('[Page Script] No content provided for handout');
+              resolve({
+                id: newHandout.id,
+                name: newHandout.attributes.name,
+                success: true
+              });
+            }
           } else {
             reject(new Error('Handout creation failed'));
           }
-        }, 500);
+        }, 1000);
       });
     } catch (error) {
+      console.error('[Page Script] createHandout error:', error);
       throw new Error(`Failed to create handout: ${error.message}`);
+    }
+  },
+
+  /**
+   * Get detailed handout information
+   */
+  getHandout(handoutId) {
+    try {
+      if (!window.Campaign || !window.Campaign.handouts) {
+        throw new Error('Roll20 Campaign object not available');
+      }
+
+      const handout = window.Campaign.handouts.get(handoutId);
+      if (!handout) {
+        throw new Error(`Handout not found: ${handoutId}`);
+      }
+
+      console.log('[Page Script] Getting handout:', handoutId);
+      console.log('[Page Script] Handout notes:', handout.get('notes'));
+      console.log('[Page Script] Handout gmnotes:', handout.get('gmnotes'));
+
+      return {
+        id: handout.id,
+        name: handout.attributes.name || 'Unnamed',
+        notes: handout.get('notes') || '',
+        gmnotes: handout.get('gmnotes') || '',
+        archived: handout.attributes.archived || false,
+        inplayerjournals: handout.attributes.inplayerjournals || ''
+      };
+    } catch (error) {
+      console.error('[Page Script] getHandout error:', error);
+      throw new Error(`Failed to get handout: ${error.message}`);
     }
   },
 
@@ -370,6 +432,9 @@ window.addEventListener('message', async (event) => {
         break;
       case 'listHandouts':
         result = Roll20API.listHandouts();
+        break;
+      case 'getHandout':
+        result = Roll20API.getHandout(params.handoutId);
         break;
       case 'createHandout':
         result = await Roll20API.createHandout(params.name, params.content);
