@@ -27,25 +27,36 @@ function connectWebSocket() {
     }
   };
 
-  ws.onmessage = (event) => {
+  ws.onmessage = async (event) => {
     try {
       const message = JSON.parse(event.data);
       console.log('[Background] Received from MCP server:', message);
 
-      // Forward message to active Roll20 tab
-      if (activeTabId) {
-        console.log('[Background] Forwarding to tab', activeTabId, ':', message);
-        chrome.tabs.sendMessage(activeTabId, {
-          type: 'FROM_MCP',
-          payload: message
-        }).then(() => {
-          console.log('[Background] Successfully sent to tab');
-        }).catch(err => {
-          console.error('[Background] Failed to send to tab:', err);
-        });
-      } else {
-        console.error('[Background] No active tab ID to send message to');
+      // If no active tab, try to find Roll20 tab
+      if (!activeTabId) {
+        console.log('[Background] No active tab, searching for Roll20 tab...');
+        const tabs = await chrome.tabs.query({ url: '*://app.roll20.net/editor/*' });
+        if (tabs.length > 0) {
+          activeTabId = tabs[0].id;
+          console.log('[Background] Found Roll20 tab:', activeTabId);
+        } else {
+          console.error('[Background] No Roll20 editor tab found. Please open Roll20.');
+          return;
+        }
       }
+
+      // Forward message to active Roll20 tab
+      console.log('[Background] Forwarding to tab', activeTabId, ':', message);
+      chrome.tabs.sendMessage(activeTabId, {
+        type: 'FROM_MCP',
+        payload: message
+      }).then(() => {
+        console.log('[Background] Successfully sent to tab');
+      }).catch(err => {
+        console.error('[Background] Failed to send to tab:', err);
+        // Clear activeTabId on failure so it tries to find it again
+        activeTabId = null;
+      });
     } catch (error) {
       console.error('[Background] Error parsing WebSocket message:', error);
     }
