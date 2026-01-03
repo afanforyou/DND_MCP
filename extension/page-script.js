@@ -152,28 +152,34 @@ const Roll20API = {
           if (newChar && newChar.id) {
             console.log('[Page Script] Character created, ID:', newChar.id);
 
-            // Set bio and gmnotes separately (they are lazy-loaded fields)
-            if (data.bio) {
-              console.log('[Page Script] Saving bio to character:', data.bio);
-              newChar.save({ bio: data.bio });
-            }
-            if (data.gmnotes) {
-              console.log('[Page Script] Saving gmnotes to character:', data.gmnotes);
-              newChar.save({ gmnotes: data.gmnotes });
-            }
+            // Set bio and gmnotes using updateBlobs (proper method for HTML content fields)
+            if (data.bio || data.gmnotes) {
+              console.log('[Page Script] Setting bio/gmnotes via updateBlobs');
+              const blobsToUpdate = {};
+              if (data.bio) blobsToUpdate.bio = data.bio;
+              if (data.gmnotes) blobsToUpdate.gmnotes = data.gmnotes;
 
-            // Wait a bit more for saves to complete
-            setTimeout(() => {
-              console.log('[Page Script] Character bio/gmnotes save completed');
-              console.log('[Page Script] Character bio value:', newChar.get('bio'));
-              console.log('[Page Script] Character gmnotes value:', newChar.get('gmnotes'));
+              newChar.updateBlobs(blobsToUpdate);
 
+              // Wait for blobs to update and sync
+              setTimeout(() => {
+                console.log('[Page Script] Character blobs update completed');
+                console.log('[Page Script] Character bio value:', newChar.get('bio'));
+                console.log('[Page Script] Character gmnotes value:', newChar.get('gmnotes'));
+
+                resolve({
+                  id: newChar.id,
+                  name: newChar.attributes.name,
+                  success: true
+                });
+              }, 1000);
+            } else {
               resolve({
                 id: newChar.id,
                 name: newChar.attributes.name,
                 success: true
               });
-            }, 500);
+            }
           } else {
             reject(new Error('Character creation failed'));
           }
@@ -208,14 +214,14 @@ const Roll20API = {
         char.save(basicUpdates);
       }
 
-      // Update bio and gmnotes separately (lazy-loaded fields)
-      if (updates.bio !== undefined) {
-        char.save({ bio: updates.bio });
-        console.log('[Page Script] Updated bio for character:', characterId);
-      }
-      if (updates.gmnotes !== undefined) {
-        char.save({ gmnotes: updates.gmnotes });
-        console.log('[Page Script] Updated gmnotes for character:', characterId);
+      // Update bio and gmnotes using updateBlobs (proper method for HTML content fields)
+      const blobUpdates = {};
+      if (updates.bio !== undefined) blobUpdates.bio = updates.bio;
+      if (updates.gmnotes !== undefined) blobUpdates.gmnotes = updates.gmnotes;
+
+      if (Object.keys(blobUpdates).length > 0) {
+        console.log('[Page Script] Updating character blobs:', Object.keys(blobUpdates));
+        char.updateBlobs(blobUpdates);
       }
 
       return { success: true, id: characterId };
@@ -271,14 +277,18 @@ const Roll20API = {
           if (newHandout && newHandout.id) {
             console.log('[Page Script] Handout created, ID:', newHandout.id);
 
-            // Set notes separately (it's a lazy-loaded field)
+            // Set notes using updateBlobs (proper method for HTML content fields)
             if (content) {
-              console.log('[Page Script] Saving notes to handout:', content);
-              newHandout.save({ notes: content });
+              console.log('[Page Script] Setting notes via updateBlobs:', content);
 
-              // Wait a bit more for the save to complete
+              // Use updateBlobs which is the proper Roll20 API for notes/gmnotes/bio
+              newHandout.updateBlobs({
+                notes: content
+              });
+
+              // Wait for blobs to update and sync
               setTimeout(() => {
-                console.log('[Page Script] Notes save completed');
+                console.log('[Page Script] Blobs update completed');
                 console.log('[Page Script] Handout notes value:', newHandout.get('notes'));
 
                 resolve({
@@ -286,7 +296,7 @@ const Roll20API = {
                   name: newHandout.attributes.name,
                   success: true
                 });
-              }, 500);
+              }, 1000);
             } else {
               console.log('[Page Script] No content provided for handout');
               resolve({
@@ -352,7 +362,7 @@ const Roll20API = {
         throw new Error(`Handout not found: ${handoutId}`);
       }
 
-      // Update basic attributes (name)
+      // Update basic attributes (name, archived)
       const basicUpdates = {};
       if (updates.name) basicUpdates.name = updates.name;
       if (updates.archived !== undefined) basicUpdates.archived = updates.archived;
@@ -361,16 +371,14 @@ const Roll20API = {
         handout.save(basicUpdates);
       }
 
-      // Update notes separately (lazy-loaded field)
-      if (updates.content !== undefined) {
-        handout.save({ notes: updates.content });
-        console.log('[Page Script] Updated notes for handout:', handoutId);
-      }
+      // Update notes and gmnotes using updateBlobs (proper method for HTML content fields)
+      const blobUpdates = {};
+      if (updates.content !== undefined) blobUpdates.notes = updates.content;
+      if (updates.gmnotes !== undefined) blobUpdates.gmnotes = updates.gmnotes;
 
-      // Also support gmnotes for handouts
-      if (updates.gmnotes !== undefined) {
-        handout.save({ gmnotes: updates.gmnotes });
-        console.log('[Page Script] Updated gmnotes for handout:', handoutId);
+      if (Object.keys(blobUpdates).length > 0) {
+        console.log('[Page Script] Updating handout blobs:', Object.keys(blobUpdates));
+        handout.updateBlobs(blobUpdates);
       }
 
       return { success: true, id: handoutId };
