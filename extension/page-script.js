@@ -53,17 +53,13 @@ function waitForRoll20API() {
         return false;
       }
 
-      // Additional check: ensure Campaign has an ID (means it's fully initialized)
-      if (!window.Campaign.id) {
-        console.log('[Page Script] Campaign.id not yet set');
-        return false;
-      }
-
+      // If we got here, Campaign and collections are loaded
+      console.log('[Page Script] Campaign ready - characters:', window.Campaign.characters.length, 'handouts:', window.Campaign.handouts.length);
       return true;
     };
 
     if (checkReady()) {
-      console.log('[Page Script] Campaign already loaded, ID:', window.Campaign.id);
+      console.log('[Page Script] Campaign already loaded:', window.Campaign.attributes?.name || 'Unknown');
       resolve();
       return;
     }
@@ -77,7 +73,7 @@ function waitForRoll20API() {
 
       if (checkReady()) {
         clearInterval(checkInterval);
-        console.log('[Page Script] Campaign loaded successfully after', attempts * 250, 'ms, ID:', window.Campaign.id);
+        console.log('[Page Script] Campaign loaded successfully after', attempts * 250, 'ms');
         resolve();
       } else if (attempts >= maxAttempts) {
         clearInterval(checkInterval);
@@ -1180,13 +1176,11 @@ waitForRoll20API()
   .then(() => {
     console.log('[Page Script] ✅ Roll20 Campaign loaded and ready!');
     console.log('[Page Script] Campaign:', window.Campaign.attributes.name);
-    console.log('[Page Script] Campaign ID:', window.Campaign.id);
     console.log('[Page Script] Characters:', window.Campaign.characters.length);
     console.log('[Page Script] Handouts:', window.Campaign.handouts.length);
     sendResponse('init', {
       ready: true,
-      campaign: window.Campaign.attributes.name,
-      campaignId: window.Campaign.id
+      campaign: window.Campaign.attributes.name
     });
   })
   .catch((error) => {
