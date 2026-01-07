@@ -221,6 +221,16 @@ const Roll20API = {
   initializeDND2024Sheet(character) {
     console.log('[Page Script] Initializing D&D 2024 sheet attributes for:', character.id);
 
+    // Ensure attribs collection has Firebase reference
+    if (!character.attribs.backboneFirebase) {
+      console.log('[Page Script] Initializing BackboneFirebase for attribs collection');
+      character.attribs.backboneFirebase = new window.BackboneFirebase(
+        character.attribs,
+        'char-attribs',
+        character.id
+      );
+    }
+
     // Create minimal store structure
     const minimalStore = {
       integrants: {
@@ -513,34 +523,39 @@ const Roll20API = {
             // Initialize D&D 2024 character sheet attributes
             this.initializeDND2024Sheet(newChar);
 
-            // Set bio and gmnotes using updateBlobs (proper method for HTML content fields)
-            if (data.bio || data.gmnotes) {
-              console.log('[Page Script] Setting bio/gmnotes via updateBlobs');
-              const blobsToUpdate = {};
-              if (data.bio) blobsToUpdate.bio = data.bio;
-              if (data.gmnotes) blobsToUpdate.gmnotes = data.gmnotes;
+            // Wait for D&D sheet attributes to sync to Firebase
+            setTimeout(() => {
+              console.log('[Page Script] D&D sheet attributes synced');
 
-              newChar.updateBlobs(blobsToUpdate);
+              // Set bio and gmnotes using updateBlobs (proper method for HTML content fields)
+              if (data.bio || data.gmnotes) {
+                console.log('[Page Script] Setting bio/gmnotes via updateBlobs');
+                const blobsToUpdate = {};
+                if (data.bio) blobsToUpdate.bio = data.bio;
+                if (data.gmnotes) blobsToUpdate.gmnotes = data.gmnotes;
 
-              // Wait for blobs to update and sync
-              setTimeout(() => {
-                console.log('[Page Script] Character blobs update completed');
-                console.log('[Page Script] Character bio value:', newChar.get('bio'));
-                console.log('[Page Script] Character gmnotes value:', newChar.get('gmnotes'));
+                newChar.updateBlobs(blobsToUpdate);
 
+                // Wait for blobs to update and sync
+                setTimeout(() => {
+                  console.log('[Page Script] Character blobs update completed');
+                  console.log('[Page Script] Character bio value:', newChar.get('bio'));
+                  console.log('[Page Script] Character gmnotes value:', newChar.get('gmnotes'));
+
+                  resolve({
+                    id: newChar.id,
+                    name: newChar.attributes.name,
+                    success: true
+                  });
+                }, 1000);
+              } else {
                 resolve({
                   id: newChar.id,
                   name: newChar.attributes.name,
                   success: true
                 });
-              }, 1000);
-            } else {
-              resolve({
-                id: newChar.id,
-                name: newChar.attributes.name,
-                success: true
-              });
-            }
+              }
+            }, 2000); // Wait 2 seconds for attributes to sync
           } else {
             reject(new Error('Character creation failed'));
           }
@@ -857,6 +872,9 @@ const Roll20API = {
       if (Object.keys(attributes).length > 0) {
         console.log('[Page Script] Setting', Object.keys(attributes).length, 'attributes');
         await this.setCharacterAttributes(char.id, attributes);
+
+        // Wait for attributes to sync back to Firebase
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
 
       console.log('[Page Script] NPC created successfully with all stats');
