@@ -636,7 +636,28 @@ const Roll20API = {
             }
           );
         }
-        // Handle other attributes (speed, size, type, etc.) - use simple attributes
+        // Handle Speed (walking speed)
+        else if (attrName === 'speed') {
+          // Parse speed value - could be "30 ft", "30", or 30
+          const speedStr = String(value);
+          const speedMatch = speedStr.match(/(\d+)/);
+          const speedValue = speedMatch ? Number(speedMatch[1]) : Number(value);
+
+          setIntegrant(
+            'Speed',
+            i => i.type === 'Speed' && i.speed === 'Walk' && i.source === 'Custom',
+            {
+              type: 'Speed',
+              speed: 'Walk',
+              calculation: 'Set Value',
+              source: 'Custom',
+              _label: '',
+              valueFormula: { flatValue: speedValue },
+              arrayPosition: 80
+            }
+          );
+        }
+        // Handle other attributes (size, type, etc.) - use simple attributes
         else {
           let attr = char.attribs.find(a => a.attributes.name === attrName);
           if (attr) {
