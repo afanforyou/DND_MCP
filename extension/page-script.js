@@ -53,8 +53,20 @@ function waitForRoll20API() {
         return false;
       }
 
+      // Check that Campaign has attributes (not just an empty shell)
+      if (!window.Campaign.attributes) {
+        console.log('[Page Script] Campaign.attributes not yet available');
+        return false;
+      }
+
+      // Check that Campaign has a name (indicates it's actually loaded, not just initialized)
+      if (!window.Campaign.attributes.name) {
+        console.log('[Page Script] Campaign.attributes.name not yet set');
+        return false;
+      }
+
       // If we got here, Campaign and collections are loaded
-      console.log('[Page Script] Campaign ready - characters:', window.Campaign.characters.length, 'handouts:', window.Campaign.handouts.length);
+      console.log('[Page Script] Campaign ready:', window.Campaign.attributes.name, '- characters:', window.Campaign.characters.length, 'handouts:', window.Campaign.handouts.length);
       return true;
     };
 
