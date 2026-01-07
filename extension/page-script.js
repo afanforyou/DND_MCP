@@ -24,39 +24,75 @@ function sendResponse(requestId, data, error = null) {
 
 // Helper to wait for Roll20 API to be ready
 function waitForRoll20API() {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const checkReady = () => {
-      // Check if Campaign exists and has its collections loaded
-      if (window.Campaign &&
-          window.Campaign.characters &&
-          window.Campaign.handouts &&
-          typeof window.Campaign.characters.length !== 'undefined') {
-        return true;
+      // Check if we're on a Roll20 editor page
+      if (!window.location.href.includes('app.roll20.net/editor')) {
+        console.error('[Page Script] Not on Roll20 editor page:', window.location.href);
+        return false;
       }
-      return false;
+
+      // Check if Campaign exists and has its collections loaded
+      if (!window.Campaign) {
+        console.log('[Page Script] Campaign object not yet available');
+        return false;
+      }
+
+      if (!window.Campaign.characters) {
+        console.log('[Page Script] Campaign.characters collection not yet available');
+        return false;
+      }
+
+      if (!window.Campaign.handouts) {
+        console.log('[Page Script] Campaign.handouts collection not yet available');
+        return false;
+      }
+
+      if (typeof window.Campaign.characters.length === 'undefined') {
+        console.log('[Page Script] Campaign.characters.length not yet defined');
+        return false;
+      }
+
+      // Additional check: ensure Campaign has an ID (means it's fully initialized)
+      if (!window.Campaign.id) {
+        console.log('[Page Script] Campaign.id not yet set');
+        return false;
+      }
+
+      return true;
     };
 
     if (checkReady()) {
-      console.log('[Page Script] Campaign already loaded');
+      console.log('[Page Script] Campaign already loaded, ID:', window.Campaign.id);
       resolve();
       return;
     }
 
     console.log('[Page Script] Waiting for Campaign to load...');
+    let attempts = 0;
+    const maxAttempts = 120; // 30 seconds at 250ms intervals
+
     const checkInterval = setInterval(() => {
+      attempts++;
+
       if (checkReady()) {
         clearInterval(checkInterval);
-        console.log('[Page Script] Campaign loaded successfully');
+        console.log('[Page Script] Campaign loaded successfully after', attempts * 250, 'ms, ID:', window.Campaign.id);
         resolve();
+      } else if (attempts >= maxAttempts) {
+        clearInterval(checkInterval);
+        console.error('[Page Script] Timeout waiting for Campaign after 30 seconds');
+        console.error('[Page Script] Current state:', {
+          hasCampaign: !!window.Campaign,
+          hasCharacters: !!window.Campaign?.characters,
+          hasHandouts: !!window.Campaign?.handouts,
+          charactersLength: window.Campaign?.characters?.length,
+          campaignId: window.Campaign?.id,
+          url: window.location.href
+        });
+        reject(new Error('Timeout waiting for Roll20 Campaign to load. Please ensure you are on the Roll20 editor page and the campaign is fully loaded.'));
       }
     }, 250);
-
-    // Timeout after 30 seconds
-    setTimeout(() => {
-      clearInterval(checkInterval);
-      console.warn('[Page Script] Timeout waiting for Campaign, proceeding anyway');
-      resolve();
-    }, 30000);
   });
 }
 
@@ -1137,8 +1173,27 @@ window.addEventListener('message', async (event) => {
 });
 
 // Signal that page script is ready
-console.log('[Page Script] Ready and waiting for Roll20 API...');
-waitForRoll20API().then(() => {
-  console.log('[Page Script] Roll20 API detected and ready!');
-  sendResponse('init', { ready: true, campaign: window.Campaign?.attributes?.name });
-});
+console.log('[Page Script] Injected and waiting for Roll20 Campaign to load...');
+console.log('[Page Script] Current URL:', window.location.href);
+
+waitForRoll20API()
+  .then(() => {
+    console.log('[Page Script] ✅ Roll20 Campaign loaded and ready!');
+    console.log('[Page Script] Campaign:', window.Campaign.attributes.name);
+    console.log('[Page Script] Campaign ID:', window.Campaign.id);
+    console.log('[Page Script] Characters:', window.Campaign.characters.length);
+    console.log('[Page Script] Handouts:', window.Campaign.handouts.length);
+    sendResponse('init', {
+      ready: true,
+      campaign: window.Campaign.attributes.name,
+      campaignId: window.Campaign.id
+    });
+  })
+  .catch((error) => {
+    console.error('[Page Script] ❌ Failed to load Roll20 Campaign:', error.message);
+    console.error('[Page Script] The MCP will not function until you open a Roll20 campaign editor page');
+    sendResponse('init', {
+      ready: false,
+      error: error.message
+    });
+  });
