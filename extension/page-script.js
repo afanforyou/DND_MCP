@@ -126,6 +126,96 @@ const Roll20API = {
   },
 
   /**
+   * Get ALL character attributes including integrants (for introspection)
+   */
+  getAllCharacterAttributes(characterId) {
+    try {
+      if (!window.Campaign || !window.Campaign.characters) {
+        throw new Error('Roll20 Campaign object not available');
+      }
+
+      const char = window.Campaign.characters.get(characterId);
+      if (!char) {
+        throw new Error(`Character not found: ${characterId}`);
+      }
+
+      console.log('[Page Script] Getting all attributes for character:', characterId);
+
+      // Get all simple attributes
+      const simpleAttributes = {};
+      if (char.attribs) {
+        char.attribs.forEach(attr => {
+          const name = attr.attributes.name;
+          // Skip complex objects like store and builder
+          if (name !== 'store' && name !== 'builder') {
+            simpleAttributes[name] = {
+              current: attr.attributes.current,
+              max: attr.attributes.max
+            };
+          }
+        });
+      }
+
+      // Get all integrants
+      const integrantsData = {};
+      const storeAttr = char.attribs.find(a => a.attributes.name === 'store');
+      if (storeAttr && storeAttr.attributes.current.integrants) {
+        const integrants = storeAttr.attributes.current.integrants.integrants;
+
+        // Organize integrants by type for easier viewing
+        Object.entries(integrants).forEach(([key, integrant]) => {
+          const type = integrant.type;
+          if (!integrantsData[type]) {
+            integrantsData[type] = [];
+          }
+
+          // Simplify the integrant data for display
+          const simplified = {
+            key: key,
+            shortID: integrant.shortID,
+            name: integrant.name,
+            enabled: integrant._enabled,
+            label: integrant._label
+          };
+
+          // Add type-specific fields
+          if (type === 'Ability Score') {
+            simplified.ability = integrant.ability;
+            simplified.value = integrant.valueFormula?.flatValue;
+          } else if (type === 'Armor Class') {
+            simplified.value = integrant.valueFormula?.flatValue;
+          } else if (type === 'Hit Points') {
+            simplified.hitpointType = integrant.hitpointType;
+            simplified.value = integrant.valueFormula?.flatValue;
+          } else if (type === 'Speed') {
+            simplified.speedType = integrant.speed;
+            simplified.value = integrant.valueFormula?.flatValue;
+          } else if (type === 'Skill') {
+            simplified.ability = integrant.ability;
+          }
+
+          integrantsData[type].push(simplified);
+        });
+      }
+
+      return {
+        id: char.id,
+        name: char.attributes.name,
+        simpleAttributes,
+        integrants: integrantsData,
+        summary: {
+          simpleAttributeCount: Object.keys(simpleAttributes).length,
+          integrantTypeCount: Object.keys(integrantsData).length,
+          totalIntegrants: Object.values(integrantsData).reduce((sum, arr) => sum + arr.length, 0)
+        }
+      };
+    } catch (error) {
+      console.error('[Page Script] getAllCharacterAttributes error:', error);
+      throw new Error(`Failed to get all character attributes: ${error.message}`);
+    }
+  },
+
+  /**
    * Initialize D&D 2024 character sheet attributes (store, builder, etc.)
    */
   initializeDND2024Sheet(character) {
@@ -984,6 +1074,9 @@ window.addEventListener('message', async (event) => {
         break;
       case 'getCharacter':
         result = Roll20API.getCharacter(params.characterId);
+        break;
+      case 'getAllCharacterAttributes':
+        result = Roll20API.getAllCharacterAttributes(params.characterId);
         break;
       case 'createCharacter':
         result = await Roll20API.createCharacter(params.name, params.data);

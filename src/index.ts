@@ -137,6 +137,20 @@ const TOOLS = [
     },
   },
   {
+    name: 'get_all_character_attributes',
+    description: 'Get ALL attributes and integrants from a character (for introspection). Returns simple attributes (like proficiency bonus, size, type) and integrants (ability scores, AC, HP, speed) organized by type. Use this to discover what fields exist on a character.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        characterId: {
+          type: 'string',
+          description: 'The ID of the character to introspect',
+        },
+      },
+      required: ['characterId'],
+    },
+  },
+  {
     name: 'create_character',
     description: 'Create a new character in the Roll20 campaign',
     inputSchema: {
@@ -194,7 +208,7 @@ const TOOLS = [
   },
   {
     name: 'set_character_attributes',
-    description: 'Set character attributes (stats like HP, AC, ability scores, etc.)',
+    description: 'Set ANY character attributes flexibly. Handles both integrants (ability scores, AC, HP, speed) and simple attributes (proficiency bonus, size, type, alignment, etc.). For integrants, it automatically creates the proper structure. For simple attributes, it sets them directly. Use get_all_character_attributes to discover available attribute names.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -204,7 +218,7 @@ const TOOLS = [
         },
         attributes: {
           type: 'object',
-          description: 'Object containing attribute names and values. For attributes with current/max (like HP), use {current: X, max: Y}',
+          description: 'Object with attribute names as keys and values. Examples: {"strength": 14, "pb": 2, "speed": "30 ft", "size": "Medium"}. For HP use {current: X, max: Y}. Attribute names can be discovered using get_all_character_attributes.',
         },
       },
       required: ['characterId', 'attributes'],
@@ -406,6 +420,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case 'get_character':
         result = await extensionClient.sendRequest('getCharacter', {
+          characterId: args.characterId,
+        });
+        break;
+
+      case 'get_all_character_attributes':
+        result = await extensionClient.sendRequest('getAllCharacterAttributes', {
           characterId: args.characterId,
         });
         break;
