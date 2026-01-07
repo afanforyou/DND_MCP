@@ -126,6 +126,273 @@ const Roll20API = {
   },
 
   /**
+   * Initialize D&D 2024 character sheet attributes (store, builder, etc.)
+   */
+  initializeDND2024Sheet(character) {
+    console.log('[Page Script] Initializing D&D 2024 sheet attributes for:', character.id);
+
+    // Create minimal store structure
+    const minimalStore = {
+      integrants: {
+        integrants: {}
+      },
+      about: {
+        characteristics: {},
+        aboutTabApperancesDisplayOrder: '[]',
+        aboutTabCharacteristicsDisplayOrder: '[]'
+      },
+      actions: {
+        actionDisplayOrder: '[]',
+        bonusActionDisplayOrder: '[]',
+        reactionDisplayOrder: '[]',
+        freeActionDisplayOrder: '[]'
+      },
+      attacks: {
+        attackDisplayOrder: '[]'
+      },
+      background: {
+        aboutTabBackgroundDisplayOrder: '[]'
+      },
+      bastion: {
+        bastionDefenders: '',
+        bastionDescription: '',
+        bastionLevel: 1,
+        characterLink: ''
+      },
+      character: {
+        createdWithBuilder: false,
+        creatureType: '',
+        pronouns: ''
+      },
+      classLevel: {
+        currentExp: 0
+      },
+      currencies: {
+        initialized: true
+      },
+      effects: {
+        effectDisplayOrder: '[]'
+      },
+      features: {
+        classFeatureDisplayOrder: '[]',
+        speciesTraitsDisplayOrder: '[]',
+        featsDisplayOrder: '[]',
+        otherDisplayOrder: '[]'
+      },
+      hitpoints: {
+        currentHP: 0,
+        deathSaves: {
+          failures: 0,
+          successes: 0,
+          open: false
+        }
+      },
+      inspiration: {
+        isInspired: false
+      },
+      inventory: {
+        equipmentDisplayOrder: '[]',
+        incrementalQuantityEditing: true,
+        otherPossessionsDisplayOrder: '[]'
+      },
+      notes: {
+        order: {
+          Organizations: '[]',
+          Allies: '[]',
+          Enemies: '[]'
+        },
+        emptyCategories: '[]'
+      },
+      npc: {
+        acNotes: '',
+        challengeRating: '',
+        customXP: '',
+        gear: '',
+        habitat: '',
+        legendaryActionCompendiumNum: 0,
+        legendaryActionSummary: '',
+        mythicActionSummary: '',
+        rollHP: '',
+        treasure: ''
+      },
+      npcEdit: {},
+      rest: {
+        longRestModalData: {
+          dawnResources: true,
+          recoverExhaustion: false,
+          resetHpMax: false,
+          spellManagement: false
+        },
+        shortRestModalData: {
+          autoApplyHealing: true,
+          dawnResources: false,
+          resetHpMax: false
+        }
+      },
+      settings: {
+        addDexTiebreaker: false,
+        encumbranceType: 'Normal',
+        ignoreCoinWeight: false,
+        layoutState: 'Compact',
+        newRules: true,
+        rollDamageAutomatic: false,
+        rolls: {
+          advancedMode: 'Normal',
+          mode: 'Automatic',
+          privacy: 'public'
+        },
+        showPreparedSpells: false,
+        useConditionTokenSync: false
+      },
+      shop: {
+        isLocked: false,
+        lockDC: 10,
+        shopDescription: '',
+        shopDiscountMarkup: 0,
+        shopOwner: '',
+        shopStaff: '',
+        type: 'shop'
+      },
+      spellSlots: {
+        currentByLevel: {
+          CANTRIP: 0,
+          EIGHTH: 0,
+          FIFTH: 0,
+          FIRST: 0,
+          FOURTH: 0,
+          NINTH: 0,
+          SECOND: 0,
+          SEVENTH: 0,
+          SIXTH: 0,
+          THIRD: 0
+        },
+        currentPactByLevel: {
+          CANTRIP: 0,
+          EIGHTH: 0,
+          FIFTH: 0,
+          FIRST: 0,
+          FOURTH: 0,
+          NINTH: 0,
+          SECOND: 0,
+          SEVENTH: 0,
+          SIXTH: 0,
+          THIRD: 0
+        },
+        useSpellSlotOnCast: true
+      },
+      spells: {
+        displayOrder: ['[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]', '[]'],
+        generalSpellSettings: {
+          defaultToFullscreen: false,
+          showPreparedBar: false,
+          showPreparedSpellsOnly: false,
+          spellcastings: '$__$[]',
+          useSlotAlwaysPrepared: false,
+          useSlotDefault: true
+        }
+      },
+      weaponMasteries: {
+        masteryDisplayOrder: '[]'
+      }
+    };
+
+    const minimalBuilder = {
+      abilities: {
+        assignAllToggled: false,
+        generationMethod: 'Standard Array',
+        hasVisited: false,
+        isUsingTCERulesASI: false,
+        rolledArray: '-1, -1, -1, -1, -1, -1'
+      },
+      about: { hasVisited: false },
+      background: { hasVisited: false },
+      class: { hasVisited: false },
+      customBackground: {
+        initialDecision: {},
+        options: {},
+        tempCustomBackground: {},
+        tempFeatures: {},
+        tempFeatureChildren: {}
+      },
+      customClass: {
+        initialDecision: {},
+        options: {},
+        tempCustomClass: {},
+        tempFeatures: {},
+        tempFeatureChildren: {}
+      },
+      customSpecies: {
+        initialDecision: {},
+        options: {},
+        tempCustomSpecies: {},
+        tempFeatures: {},
+        tempFeatureChildren: {}
+      },
+      customSubclass: {
+        initialDecision: {},
+        options: {},
+        tempCustomSubclass: {},
+        tempFeatures: {},
+        tempFeatureChildren: {}
+      },
+      decisions: {
+        allDecisions: {}
+      },
+      equipment: { hasVisited: false },
+      feats: { hasVisited: false },
+      finalize: {
+        builderIterations: {}
+      },
+      hasCompletedOnce: false,
+      isInProgress: false,
+      lists: {
+        localLists: {}
+      },
+      skills: { hasVisited: false },
+      species: { hasVisited: false },
+      spells: { hasVisited: false }
+    };
+
+    // Create the required attributes
+    character.attribs.create({
+      name: 'store',
+      current: minimalStore,
+      max: '',
+      characterid: character.id
+    });
+
+    character.attribs.create({
+      name: 'builder',
+      current: minimalBuilder,
+      max: '',
+      characterid: character.id
+    });
+
+    character.attribs.create({
+      name: 'appState',
+      current: '',
+      max: '',
+      characterid: character.id
+    });
+
+    character.attribs.create({
+      name: 'sheetVersion',
+      current: 11,
+      max: '',
+      characterid: character.id
+    });
+
+    character.attribs.create({
+      name: 'updateId',
+      current: this.generateShortID() + this.generateShortID(),
+      max: '',
+      characterid: character.id
+    });
+
+    console.log('[Page Script] D&D 2024 sheet attributes initialized');
+  },
+
+  /**
    * Create a new character
    */
   createCharacter(name, data = {}) {
@@ -147,11 +414,14 @@ const Roll20API = {
 
       const newChar = window.Campaign.characters.create(characterData);
 
-      // Wait longer for character to be created and synced, then set bio/gmnotes
+      // Wait longer for character to be created and synced, then initialize D&D 2024 sheet
       return new Promise((resolve, reject) => {
         setTimeout(() => {
           if (newChar && newChar.id) {
             console.log('[Page Script] Character created, ID:', newChar.id);
+
+            // Initialize D&D 2024 character sheet attributes
+            this.initializeDND2024Sheet(newChar);
 
             // Set bio and gmnotes using updateBlobs (proper method for HTML content fields)
             if (data.bio || data.gmnotes) {
