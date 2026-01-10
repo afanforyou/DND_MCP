@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Roll20 MCP Bridge",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Bridges Roll20 to MCP server for AI-powered campaign management",
   "permissions": [
     "storage",
