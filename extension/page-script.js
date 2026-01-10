@@ -1104,7 +1104,7 @@ const Roll20API = {
 
       return {
         id: window.Campaign.id,
-        name: window.Campaign.attributes.name || 'Unnamed Campaign',
+        name: 'Roll20 Campaign',
         playerCount: window.Campaign.players ? window.Campaign.players.length : 0,
         characterCount: window.Campaign.characters ? window.Campaign.characters.length : 0,
         handoutCount: window.Campaign.handouts ? window.Campaign.handouts.length : 0,
@@ -1188,12 +1188,12 @@ console.log('[Page Script] Current URL:', window.location.href);
 waitForRoll20API()
   .then(() => {
     console.log('[Page Script] ✅ Roll20 Campaign loaded and ready!');
-    console.log('[Page Script] Campaign:', window.Campaign.attributes.name);
     console.log('[Page Script] Characters:', window.Campaign.characters.length);
     console.log('[Page Script] Handouts:', window.Campaign.handouts.length);
+    console.log('[Page Script] Campaign attributes:', Object.keys(window.Campaign.attributes).length);
     sendResponse('init', {
       ready: true,
-      campaign: window.Campaign.attributes.name
+      campaign: 'Roll20 Campaign'
     });
   })
   .catch((error) => {
