@@ -59,19 +59,20 @@ function waitForRoll20API() {
         return false;
       }
 
-      // Check that Campaign has a name (indicates it's actually loaded, not just initialized)
-      if (!window.Campaign.attributes.name) {
-        console.log('[Page Script] Campaign.attributes.name not yet set');
+      // Check that Campaign.attributes has data loaded (not just an empty object)
+      const attributeKeys = Object.keys(window.Campaign.attributes);
+      if (attributeKeys.length === 0) {
+        console.log('[Page Script] Campaign.attributes is empty, not yet loaded');
         return false;
       }
 
       // If we got here, Campaign and collections are loaded
-      console.log('[Page Script] Campaign ready:', window.Campaign.attributes.name, '- characters:', window.Campaign.characters.length, 'handouts:', window.Campaign.handouts.length);
+      console.log('[Page Script] ✅ Roll20 Campaign loaded and ready!', 'Characters:', window.Campaign.characters.length, 'Handouts:', window.Campaign.handouts.length, 'Campaign attributes:', attributeKeys.length);
       return true;
     };
 
     if (checkReady()) {
-      console.log('[Page Script] Campaign already loaded:', window.Campaign.attributes?.name || 'Unknown');
+      console.log('[Page Script] Campaign already loaded with', Object.keys(window.Campaign.attributes || {}).length, 'attributes');
       resolve();
       return;
     }
