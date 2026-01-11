@@ -863,6 +863,20 @@ const Roll20API = {
       // Step 2: Wait a bit for character to sync, then set all attributes
       await new Promise(resolve => setTimeout(resolve, 1500));
 
+      // Get the created character
+      const createdChar = window.Campaign.characters.get(char.id);
+
+      // Set challenge rating in store.npc.challengeRating (this is what the sheet uses)
+      if (npcData.challenge_rating) {
+        const storeAttr = createdChar.attribs.find(a => a.attributes.name === 'store');
+        if (storeAttr) {
+          const store = storeAttr.attributes.current;
+          store.npc.challengeRating = npcData.challenge_rating;
+          storeAttr.save();
+          console.log('[Page Script] Set store.npc.challengeRating to:', npcData.challenge_rating);
+        }
+      }
+
       // Build attributes object from NPC data
       const attributes = {};
 
@@ -888,9 +902,8 @@ const Roll20API = {
       if (npcData.wisdom) attributes.wisdom = npcData.wisdom;
       if (npcData.charisma) attributes.charisma = npcData.charisma;
 
-      // CR and proficiency
-      if (npcData.challenge_rating) attributes.npc_challenge = npcData.challenge_rating;
-      if (npcData.proficiency_bonus) attributes.pb = npcData.proficiency_bonus;
+      // Note: Challenge rating is set in store.npc.challengeRating above
+      // Proficiency bonus is calculated automatically by the sheet from CR
 
       // Saving throws (if provided)
       if (npcData.saving_throws) {
